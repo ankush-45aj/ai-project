@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from 'react';
+import { useState, useEffect, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
@@ -18,6 +18,7 @@ function transferReducer(state, action) {
 function Dashboard() {
     const { currentUser, logout } = useAuth();
     const navigate = useNavigate();
+    const assistantRef = useRef(null);
 
     const [query, setQuery] = useState('');
     const [response, setResponse] = useState('');
@@ -26,6 +27,9 @@ function Dashboard() {
     const [darkMode, setDarkMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [position, setPosition] = useState({ x: window.innerWidth - 370, y: 100 });
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
     // Using reducer for transfer state
     const [transferData, dispatchTransfer] = useReducer(transferReducer, {
@@ -50,6 +54,11 @@ function Dashboard() {
 
     const [transactionFilter, setTransactionFilter] = useState('all');
     const [sortOrder, setSortOrder] = useState('newest');
+    const [language, setLanguage] = useState('en');
+    const [fontSize, setFontSize] = useState('medium');
+    const [currency, setCurrency] = useState('INR');
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
     useEffect(() => {
         if (!currentUser) navigate('/login');
@@ -67,8 +76,47 @@ function Dashboard() {
         }
     }, [notification]);
 
+    // Handle draggable assistant
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (isDragging) {
+                setPosition({
+                    x: e.clientX - dragOffset.x,
+                    y: e.clientY - dragOffset.y
+                });
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        if (isDragging) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, dragOffset]);
+
+    const startDrag = (e) => {
+        if (e.target.className.includes('assistant-header')) {
+            const rect = assistantRef.current.getBoundingClientRect();
+            setDragOffset({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            });
+            setIsDragging(true);
+        }
+    };
+
     const showNotification = (message, type = 'info') => {
-        setNotification({ message, type });
+        if (notificationsEnabled) {
+            setNotification({ message, type });
+        }
     };
 
     const handleAsk = () => {
@@ -89,8 +137,10 @@ function Dashboard() {
             setResponse("Hello! Ask about balances, transfers, loans, or transactions.");
         } else if (lcQuery.includes("pay bill")) {
             setResponse("You can pay bills in the Payments tab. I can help with:\n- Electricity\n- Water\n- Credit Card\n- Internet");
+        } else if (lcQuery.includes("settings")) {
+            setResponse("You can manage your settings in the Settings tab. Options include:\n- Dark Mode\n- Language\n- Notifications\n- Security");
         } else {
-            setResponse("I can help with:\n1. Account balances\n2. Fund transfers\n3. Loan info\n4. Transactions\n5. Bill payments\n6. Investments");
+            setResponse("I can help with:\n1. Account balances\n2. Fund transfers\n3. Loan info\n4. Transactions\n5. Bill payments\n6. Investments\n7. Settings");
         }
     };
 
@@ -174,7 +224,7 @@ function Dashboard() {
         new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
 
     return (
-        <div className={`ai-dashboard ${darkMode ? 'dark-mode' : ''}`}>
+        <div className={`ai-dashboard ${darkMode ? 'dark-mode' : ''} ${fontSize}`}>
             {/* Notification System */}
             {notification && (
                 <div className={`notification ${notification.type}`}>
@@ -444,43 +494,155 @@ function Dashboard() {
                         </div>
                     )}
 
-                    {/* AI Assistant */}
-                    <div className="assistant-panel">
-                        <div className="assistant-header">
-                            <h3>🤖 NEO Assistant</h3>
-                            <div className="assistant-status"><span className="pulse-dot"></span>Online</div>
-                        </div>
-
-                        <div className="assistant-chat">
-                            {response && (
-                                <div className="assistant-message">
-                                    <div className="message-avatar">AI</div>
-                                    <div className="message-content">
-                                        {response.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                    {/* Settings Tab */}
+                    {activeTab === 'settings' && (
+                        <div className="settings-section">
+                            <h2>Settings</h2>
+                            <div className="settings-options">
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Dark Mode</h3>
+                                        <p>Toggle between light and dark theme</p>
                                     </div>
+                                    <label className="switch">
+                                        <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
+                                        <span className="slider round"></span>
+                                    </label>
                                 </div>
-                            )}
 
-                            <div className="assistant-input">
-                                <input
-                                    type="text"
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Ask NEO anything..."
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
-                                />
-                                <button onClick={handleAsk} className="ask-btn"><span className="icon-send"></span></button>
-                            </div>
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Biometric Authentication</h3>
+                                        <p>Use fingerprint or face recognition for login</p>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" checked={biometricsEnabled} onChange={() => setBiometricsEnabled(!biometricsEnabled)} />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
 
-                            <div className="quick-prompts">
-                                <button onClick={() => { setQuery("What's my balance?"); handleAsk(); }}>Balance</button>
-                                <button onClick={() => { setQuery("Show recent transactions"); handleAsk(); }}>Transactions</button>
-                                <button onClick={() => { setQuery("Loan options"); handleAsk(); }}>Loans</button>
-                                <button onClick={() => setActiveTab('transfer')}>Transfer Funds</button>
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Two-Factor Authentication</h3>
+                                        <p>Add an extra layer of security to your account</p>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" checked={twoFactorEnabled} onChange={() => setTwoFactorEnabled(!twoFactorEnabled)} />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Notifications</h3>
+                                        <p>Enable or disable push notifications</p>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" checked={notificationsEnabled} onChange={() => setNotificationsEnabled(!notificationsEnabled)} />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Language</h3>
+                                        <p>Select your preferred language</p>
+                                    </div>
+                                    <select
+                                        value={language}
+                                        onChange={(e) => setLanguage(e.target.value)}
+                                        className="language-selector"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="es">Spanish</option>
+                                        <option value="fr">French</option>
+                                    </select>
+                                </div>
+
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Font Size</h3>
+                                        <p>Adjust the text size for better readability</p>
+                                    </div>
+                                    <select
+                                        value={fontSize}
+                                        onChange={(e) => setFontSize(e.target.value)}
+                                        className="font-size-selector"
+                                    >
+                                        <option value="small">Small</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="large">Large</option>
+                                    </select>
+                                </div>
+
+                                <div className="setting-item">
+                                    <div className="setting-info">
+                                        <h3>Currency</h3>
+                                        <p>Select your preferred currency</p>
+                                    </div>
+                                    <select
+                                        value={currency}
+                                        onChange={(e) => setCurrency(e.target.value)}
+                                        className="currency-selector"
+                                    >
+                                        <option value="INR">Indian Rupee (₹)</option>
+                                        <option value="USD">US Dollar ($)</option>
+                                        <option value="EUR">Euro (€)</option>
+                                        <option value="GBP">British Pound (£)</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </main>
+            </div>
+
+            {/* AI Assistant Panel */}
+            <div
+                className="assistant-panel"
+                ref={assistantRef}
+                style={{
+                    position: 'fixed',
+                    left: `${position.x}px`,
+                    top: `${position.y}px`,
+                    cursor: isDragging ? 'grabbing' : 'pointer'
+                }}
+                onMouseDown={startDrag}
+            >
+                <div className="assistant-header">
+                    <h3>🤖 NEO Assistant</h3>
+                    <div className="assistant-status"><span className="pulse-dot"></span>Online</div>
+                </div>
+
+                <div className="assistant-chat">
+                    {response && (
+                        <div className="assistant-message">
+                            <div className="message-avatar">AI</div>
+                            <div className="message-content">
+                                {response.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="assistant-input">
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Ask NEO anything..."
+                            onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
+                        />
+                        <button onClick={handleAsk} className="ask-btn"><span className="icon-send"></span></button>
+                    </div>
+
+                    <div className="quick-prompts">
+                        <button onClick={() => { setQuery("What's my balance?"); handleAsk(); }}>Balance</button>
+                        <button onClick={() => { setQuery("Show recent transactions"); handleAsk(); }}>Transactions</button>
+                        <button onClick={() => { setQuery("Loan options"); handleAsk(); }}>Loans</button>
+                        <button onClick={() => setActiveTab('transfer')}>Transfer Funds</button>
+                    </div>
+                </div>
             </div>
         </div>
     );
