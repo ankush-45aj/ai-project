@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import axiosInstance from '../utils/axiosInstance';
+import { useAuth } from '../context/AuthContext'; // 👈 import context
 import './Login.css';
 
 function Login() {
@@ -9,8 +10,9 @@ function Login() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+
     const navigate = useNavigate();
+    const { login } = useAuth(); // 👈 use context function
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,11 +21,16 @@ function Login() {
         setSuccess('');
 
         try {
-            await login(email, password);
+            const res = await axiosInstance.post('/auth/login', { email, password });
+            const { token, user } = res.data;
+
+            localStorage.setItem('token', token);
+            login(user); // ✅ update context with user
+
             setSuccess('Login successful! Redirecting...');
-            setTimeout(() => navigate('/Dashboard'), 1000); // Show success message before redirect
+            setTimeout(() => navigate('/dashboard'), 500);
         } catch (err) {
-            setError(err.message || 'Failed to log in');
+            setError(err.response?.data?.error || 'Failed to log in');
         } finally {
             setLoading(false);
         }

@@ -1,39 +1,23 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// Create and export the context
 export const AuthContext = createContext();
 
-// Auth Provider Component
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Mock authentication - replace with real API calls
     useEffect(() => {
-        const timer = setTimeout(() => {
-            const user = localStorage.getItem('user');
-            setCurrentUser(user ? JSON.parse(user) : null);
-            setLoading(false);
-        }, 500);
-
-        return () => clearTimeout(timer);
+        const user = localStorage.getItem('user');
+        setCurrentUser(user ? JSON.parse(user) : null);
+        setLoading(false);
     }, []);
 
-    // Login function
-    // Important: Make sure login properly sets the user
-    const login = async (email, password) => {
-        try {
-            // Replace this with your actual authentication logic
-            const userData = { email, name: email.split('@')[0] };
-            localStorage.setItem('user', JSON.stringify(userData)); // Persist user
-            setCurrentUser(userData); // Update state
-            return true; // Return success status
-        } catch (error) {
-            throw error;
-        }
+    // ✅ Updated login to accept full user object
+    const login = (userData) => {
+        localStorage.setItem('user', JSON.stringify(userData));
+        setCurrentUser(userData);
     };
 
-    // Register function
     const register = async (email, password, name) => {
         const response = await fetch('/api/auth/register', {
             method: 'POST',
@@ -45,9 +29,9 @@ export function AuthProvider({ children }) {
         setCurrentUser(data.user);
     };
 
-    // Logout function
     const logout = () => {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         setCurrentUser(null);
     };
 
@@ -65,10 +49,8 @@ export function AuthProvider({ children }) {
     );
 }
 
-// Custom hook for easy access
 export function useAuth() {
     return useContext(AuthContext);
 }
 
-// Default export
 export default AuthContext;

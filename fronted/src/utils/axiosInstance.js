@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:5000/api', // adjust to match backend
+  baseURL: 'http://localhost:5000/api', // Adjust if your backend port changes
 });
 
 instance.interceptors.request.use((config) => {

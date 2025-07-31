@@ -1,6 +1,8 @@
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from '../utils/axiosInstance';
+
 import './Dashboard.css';
 
 // Reducer for transfer state
@@ -10,6 +12,16 @@ function transferReducer(state, action) {
             return { ...state, [action.field]: action.value };
         case 'RESET':
             return { fromAccount: '', toAccount: '', amount: '', note: '' };
+        default:
+            return state;
+    }
+}
+
+// Reducer for settings state
+function settingsReducer(state, action) {
+    switch (action.type) {
+        case 'UPDATE_SETTING':
+            return { ...state, [action.field]: action.value };
         default:
             return state;
     }
@@ -35,6 +47,8 @@ function Dashboard() {
     });
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [aiVisible, setAiVisible] = useState(false);
+    const [showCardDetails, setShowCardDetails] = useState({});
+    const [paymentHistory, setPaymentHistory] = useState([]);
 
     // Using reducer for transfer state
     const [transferData, dispatchTransfer] = useReducer(transferReducer, {
@@ -44,21 +58,46 @@ function Dashboard() {
         note: ''
     });
 
-    const [accounts] = useState([
+    // Using reducer for settings state
+    const [settings, dispatchSettings] = useReducer(settingsReducer, {
+        notifications: true,
+        twoFactorAuth: false,
+        language: 'en',
+        currency: 'INR',
+        statementFrequency: 'monthly'
+    });
+
+    const [accounts, setAccounts] = useState([
         { id: 1, name: 'Prime Savings', number: '****7890', balance: 125000, type: 'savings' },
         { id: 2, name: 'Global Advantage', number: '****4567', balance: 325000, type: 'current' },
         { id: 3, name: 'Future Investments', number: '****2345', balance: 750000, type: 'investment' }
     ]);
 
-    const [transactions] = useState([
-        { id: 1, account: 'Prime Savings', amount: 5000, type: 'credit', date: '2023-06-15', description: 'Salary Deposit', category: 'income' },
-        { id: 2, account: 'Prime Savings', amount: -2500, type: 'debit', date: '2023-06-14', description: 'Grocery Store', category: 'shopping' },
-        { id: 3, account: 'Global Advantage', amount: 12000, type: 'credit', date: '2023-06-12', description: 'Freelance Payment', category: 'income' },
-        { id: 4, account: 'Global Advantage', amount: -7500, type: 'debit', date: '2023-06-10', description: 'Rent Payment', category: 'housing' }
+    const [cards, setCards] = useState([
+        { id: 1, type: 'visa', number: '•••• •••• •••• 4567', name: 'Platinum Card', expiry: '12/25', cvv: '•••', limit: 150000, available: 87500, transactions: 12 },
+        { id: 2, type: 'mastercard', number: '•••• •••• •••• 7890', name: 'Travel Card', expiry: '09/24', cvv: '•••', limit: 200000, available: 125000, transactions: 8 }
+    ]);
+
+    const [transactions, setTransactions] = useState([
+        { id: 1, account: 'Prime Savings', amount: 5000, type: 'credit', date: '2023-06-15', description: 'Salary Deposit', category: 'income', status: 'completed' },
+        { id: 2, account: 'Prime Savings', amount: -2500, type: 'debit', date: '2023-06-14', description: 'Grocery Store', category: 'shopping', status: 'completed' },
+        { id: 3, account: 'Global Advantage', amount: 12000, type: 'credit', date: '2023-06-12', description: 'Freelance Payment', category: 'income', status: 'completed' },
+        { id: 4, account: 'Global Advantage', amount: -7500, type: 'debit', date: '2023-06-10', description: 'Rent Payment', category: 'housing', status: 'completed' },
+        { id: 5, account: 'Prime Savings', amount: -1500, type: 'debit', date: '2023-06-08', description: 'Electricity Bill', category: 'utilities', status: 'completed' },
+        { id: 6, account: 'Future Investments', amount: -10000, type: 'debit', date: '2023-06-05', description: 'Mutual Fund Investment', category: 'investment', status: 'pending' }
+    ]);
+
+    const [bills, setBills] = useState([
+        { id: 1, name: 'Electricity', dueDate: '2023-06-25', amount: 1850, paid: false, category: 'utilities' },
+        { id: 2, name: 'Internet', dueDate: '2023-06-20', amount: 1200, paid: true, category: 'utilities' },
+        { id: 3, name: 'Credit Card', dueDate: '2023-06-18', amount: 7500, paid: false, category: 'credit' },
+        { id: 4, name: 'Mobile', dueDate: '2023-06-15', amount: 599, paid: true, category: 'communication' }
     ]);
 
     const [transactionFilter, setTransactionFilter] = useState('all');
     const [sortOrder, setSortOrder] = useState('newest');
+    const [cardFilter, setCardFilter] = useState('all');
+    const [billFilter, setBillFilter] = useState('all');
 
     // Handle window resize
     useEffect(() => {
@@ -76,6 +115,26 @@ function Dashboard() {
     useEffect(() => {
         if (!currentUser) navigate('/login');
         window.scrollTo(0, 0);
+
+        // Simulate fetching payment history
+        const fetchPaymentHistory = async () => {
+            try {
+                // In a real app, this would be an API call
+                const history = [
+                    { id: 1, date: '2023-06-15', description: 'Salary Deposit', amount: 5000, status: 'completed' },
+                    { id: 2, date: '2023-06-14', description: 'Grocery Store', amount: -2500, status: 'completed' },
+                    { id: 3, date: '2023-06-12', description: 'Freelance Payment', amount: 12000, status: 'completed' },
+                    { id: 4, date: '2023-06-10', description: 'Rent Payment', amount: -7500, status: 'completed' },
+                    { id: 5, date: '2023-06-08', description: 'Electricity Bill', amount: -1500, status: 'completed' },
+                    { id: 6, date: '2023-06-05', description: 'Mutual Fund Investment', amount: -10000, status: 'pending' }
+                ];
+                setPaymentHistory(history);
+            } catch (error) {
+                console.error('Error fetching payment history:', error);
+            }
+        };
+
+        fetchPaymentHistory();
     }, [currentUser, navigate, activeTab]);
 
     // Show notification for 3 seconds
@@ -175,8 +234,14 @@ function Dashboard() {
             setResponse("Hello! Ask about balances, transfers, loans, or transactions.");
         } else if (lcQuery.includes("pay bill")) {
             setResponse("You can pay bills in the Payments tab. I can help with:\n- Electricity\n- Water\n- Credit Card\n- Internet");
+        } else if (lcQuery.includes("card")) {
+            setResponse(`Your cards:\n${cards.map(c => `- ${c.name}: ${c.number} (₹${c.available.toLocaleString()} available)`).join('\n')}`);
+        } else if (lcQuery.includes("settings")) {
+            setResponse("Settings options:\n- Notifications: " + (settings.notifications ? "ON" : "OFF") +
+                "\n- 2FA: " + (settings.twoFactorAuth ? "ON" : "OFF") +
+                "\n- Language: " + settings.language);
         } else {
-            setResponse("I can help with:\n1. Account balances\n2. Fund transfers\n3. Loan info\n4. Transactions\n5. Bill payments\n6. Investments");
+            setResponse("I can help with:\n1. Account balances\n2. Fund transfers\n3. Loan info\n4. Transactions\n5. Bill payments\n6. Investments\n7. Card details\n8. Settings");
         }
     };
 
@@ -193,9 +258,21 @@ function Dashboard() {
         });
     };
 
+    const filterCards = (cards, filter) => {
+        if (filter === 'all') return cards;
+        return cards.filter(card => card.type === filter);
+    };
+
+    const filterBills = (bills, filter) => {
+        if (filter === 'all') return bills;
+        if (filter === 'paid') return bills.filter(bill => bill.paid);
+        if (filter === 'unpaid') return bills.filter(bill => !bill.paid);
+        return bills.filter(bill => bill.category === filter);
+    };
+
     const handleTransfer = async (e) => {
         e.preventDefault();
-        const { fromAccount, toAccount, amount } = transferData;
+        const { fromAccount, toAccount, amount, note } = transferData;
 
         if (!fromAccount || !toAccount || !amount) {
             showNotification('Please fill all required fields', 'error');
@@ -215,10 +292,137 @@ function Dashboard() {
         }
 
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsLoading(false);
-        showNotification(`Transfer of ₹${amount} initiated successfully!`, 'success');
-        dispatchTransfer({ type: 'RESET' });
+
+        try {
+            // In a real app, this would be an API call
+            // const res = await axios.post('/transfer', {
+            //     fromAccount,
+            //     toAccount,
+            //     amount: amountNum,
+            //     note
+            // });
+
+            // Simulate API response delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Update accounts
+            setAccounts(prevAccounts =>
+                prevAccounts.map(acc =>
+                    acc.name === fromAccount
+                        ? { ...acc, balance: acc.balance - amountNum }
+                        : acc.name === toAccount
+                            ? { ...acc, balance: acc.balance + amountNum }
+                            : acc
+                )
+            );
+
+            // Add to transactions
+            const newTransaction = {
+                id: transactions.length + 1,
+                account: fromAccount,
+                amount: -amountNum,
+                type: 'debit',
+                date: new Date().toISOString().split('T')[0],
+                description: `Transfer to ${toAccount}`,
+                category: 'transfer',
+                status: 'completed'
+            };
+
+            setTransactions(prev => [newTransaction, ...prev]);
+
+            // Add to payment history
+            setPaymentHistory(prev => [
+                {
+                    id: paymentHistory.length + 1,
+                    date: new Date().toISOString().split('T')[0],
+                    description: `Transfer to ${toAccount}`,
+                    amount: -amountNum,
+                    status: 'completed'
+                },
+                ...prev
+            ]);
+
+            showNotification(`Transfer of ₹${amountNum} to ${toAccount} successful!`, 'success');
+            dispatchTransfer({ type: 'RESET' });
+        } catch (err) {
+            showNotification(err.response?.data?.message || 'Transfer failed', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handlePayBill = async (billId) => {
+        setIsLoading(true);
+
+        try {
+            // In a real app, this would be an API call
+            // const res = await axios.post('/pay-bill', { billId });
+
+            // Simulate API response delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Update bill status
+            setBills(prevBills =>
+                prevBills.map(bill =>
+                    bill.id === billId ? { ...bill, paid: true } : bill
+                )
+            );
+
+            // Find the bill
+            const bill = bills.find(b => b.id === billId);
+            if (bill) {
+                // Update accounts (deduct from first account)
+                setAccounts(prevAccounts =>
+                    prevAccounts.map((acc, i) =>
+                        i === 0 ? { ...acc, balance: acc.balance - bill.amount } : acc
+                    )
+                );
+
+                // Add to transactions
+                const newTransaction = {
+                    id: transactions.length + 1,
+                    account: accounts[0].name,
+                    amount: -bill.amount,
+                    type: 'debit',
+                    date: new Date().toISOString().split('T')[0],
+                    description: `Payment for ${bill.name}`,
+                    category: bill.category,
+                    status: 'completed'
+                };
+
+                setTransactions(prev => [newTransaction, ...prev]);
+
+                // Add to payment history
+                setPaymentHistory(prev => [
+                    {
+                        id: paymentHistory.length + 1,
+                        date: new Date().toISOString().split('T')[0],
+                        description: `Payment for ${bill.name}`,
+                        amount: -bill.amount,
+                        status: 'completed'
+                    },
+                    ...prev
+                ]);
+
+                showNotification(`Payment of ₹${bill.amount} for ${bill.name} successful!`, 'success');
+            }
+        } catch (err) {
+            showNotification(err.response?.data?.message || 'Payment failed', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const toggleCardDetails = (cardId) => {
+        setShowCardDetails(prev => ({
+            ...prev,
+            [cardId]: !prev[cardId]
+        }));
+    };
+
+    const handleSettingChange = (field, value) => {
+        dispatchSettings({ type: 'UPDATE_SETTING', field, value });
+        showNotification(`${field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} updated`, 'success');
     };
 
     const quickActions = [
@@ -230,6 +434,82 @@ function Dashboard() {
 
     const formattedCurrency = (val) =>
         new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+
+    const formatDate = (dateStr) => {
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+        return new Date(dateStr).toLocaleDateString('en-IN', options);
+    };
+
+    const printPaymentHistory = () => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Payment History - ${currentUser?.name || 'User'}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { color: #333; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        .credit { color: green; }
+                        .debit { color: red; }
+                        .pending { color: orange; }
+                        .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                        .footer { margin-top: 30px; font-size: 0.8em; text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div>
+                            <h1>Payment History</h1>
+                            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+                        </div>
+                        <div>
+                            <p><strong>User:</strong> ${currentUser?.name || 'User'}</p>
+                            <p><strong>Account:</strong> ${accounts[0]?.name || ''} (${accounts[0]?.number || ''})</p>
+                        </div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${paymentHistory.map(payment => `
+                                <tr>
+                                    <td>${formatDate(payment.date)}</td>
+                                    <td>${payment.description}</td>
+                                    <td class="${payment.amount > 0 ? 'credit' : 'debit'}">
+                                        ${formattedCurrency(payment.amount)}
+                                    </td>
+                                    <td class="${payment.status === 'pending' ? 'pending' : ''}">
+                                        ${payment.status}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} Ashutosh Bank - All rights reserved</p>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() {
+                                window.close();
+                            }, 1000);
+                        };
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
 
     return (
         <div className={`ai-dashboard ${darkMode ? 'dark-mode' : ''}`}>
@@ -276,8 +556,8 @@ function Dashboard() {
                             ['accounts', '💳', 'Accounts'],
                             ['transfer', '⇄', 'Transfer'],
                             ['payments', '📱', 'Payments'],
-                            ['invest', '📈', 'Invest'],
                             ['cards', '🛡️', 'Cards'],
+                            ['history', '📜', 'History'],
                             ['settings', '⚙️', 'Settings']
                         ].map(([tab, icon, label]) => (
                             <li
@@ -353,6 +633,7 @@ function Dashboard() {
                                             <option value="shopping">Shopping</option>
                                             <option value="housing">Housing</option>
                                             <option value="transfer">Transfers</option>
+                                            <option value="utilities">Utilities</option>
                                         </select>
                                         <select
                                             value={sortOrder}
@@ -371,7 +652,7 @@ function Dashboard() {
                                                 <div className="transaction-icon">{tx.type === 'credit' ? '⬇️' : '⬆️'}</div>
                                                 <div className="transaction-details">
                                                     <div className="transaction-description">{tx.description}</div>
-                                                    <div className="transaction-date">{tx.date}</div>
+                                                    <div className="transaction-date">{formatDate(tx.date)}</div>
                                                 </div>
                                                 <div className={`transaction-amount ${tx.type}`}>
                                                     {tx.type === 'credit' ? '+' : '-'}{formattedCurrency(Math.abs(tx.amount))}
@@ -383,8 +664,409 @@ function Dashboard() {
                         </div>
                     )}
 
-                    {/* Other tabs remain the same */}
-                    {/* ... */}
+                    {/* Accounts Tab */}
+                    {activeTab === 'accounts' && (
+                        <div className="accounts-tab">
+                            <h2>Your Accounts</h2>
+                            <div className="account-cards-detailed">
+                                {accounts.map(account => (
+                                    <div key={account.id} className="account-card-detailed">
+                                        <div className="account-card-header">
+                                            <span className="account-type-badge">{account.type.toUpperCase()}</span>
+                                            <span className="account-number">{account.number}</span>
+                                        </div>
+                                        <div className="account-card-body">
+                                            <h3>{account.name}</h3>
+                                            <div className="account-balance-detailed">
+                                                {formattedCurrency(account.balance)}
+                                            </div>
+                                            <div className="account-actions">
+                                                <button className="btn-small">View Statement</button>
+                                                <button className="btn-small">Details</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Transfer Tab */}
+                    {activeTab === 'transfer' && (
+                        <div className="transfer-tab">
+                            <h2>Transfer Funds</h2>
+                            <form className="transfer-form" onSubmit={handleTransfer}>
+                                <div className="form-group">
+                                    <label htmlFor="fromAccount">From Account</label>
+                                    <select
+                                        id="fromAccount"
+                                        value={transferData.fromAccount}
+                                        onChange={(e) => dispatchTransfer({ type: 'UPDATE_FIELD', field: 'fromAccount', value: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Select Account</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.name}>{acc.name} ({formattedCurrency(acc.balance)})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="toAccount">To Account</label>
+                                    <select
+                                        id="toAccount"
+                                        value={transferData.toAccount}
+                                        onChange={(e) => dispatchTransfer({ type: 'UPDATE_FIELD', field: 'toAccount', value: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Select Account</option>
+                                        {accounts.filter(acc => acc.name !== transferData.fromAccount).map(acc => (
+                                            <option key={acc.id} value={acc.name}>{acc.name} ({acc.number})</option>
+                                        ))}
+                                        <option value="External">External Bank Account</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="amount">Amount</label>
+                                    <input
+                                        type="number"
+                                        id="amount"
+                                        value={transferData.amount}
+                                        onChange={(e) => dispatchTransfer({ type: 'UPDATE_FIELD', field: 'amount', value: e.target.value })}
+                                        placeholder="Enter amount"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="note">Note (Optional)</label>
+                                    <textarea
+                                        id="note"
+                                        value={transferData.note}
+                                        onChange={(e) => dispatchTransfer({ type: 'UPDATE_FIELD', field: 'note', value: e.target.value })}
+                                        placeholder="Add a note for this transfer"
+                                        rows="3"
+                                    />
+                                </div>
+
+                                <button type="submit" className="btn-primary" disabled={isLoading}>
+                                    {isLoading ? 'Processing...' : 'Transfer Now'}
+                                </button>
+                            </form>
+
+                            <div className="recent-transfers">
+                                <h3>Recent Transfers</h3>
+                                <div className="transfers-list">
+                                    {transactions
+                                        .filter(tx => tx.category === 'transfer')
+                                        .slice(0, 3)
+                                        .map(tx => (
+                                            <div key={tx.id} className="transfer-item">
+                                                <div className="transfer-icon">⇄</div>
+                                                <div className="transfer-details">
+                                                    <div className="transfer-description">{tx.description}</div>
+                                                    <div className="transfer-date">{formatDate(tx.date)}</div>
+                                                </div>
+                                                <div className={`transfer-amount ${tx.type}`}>
+                                                    {formattedCurrency(Math.abs(tx.amount))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Payments Tab */}
+                    {activeTab === 'payments' && (
+                        <div className="payments-tab">
+                            <h2>Bill Payments</h2>
+
+                            <div className="bills-overview">
+                                <div className="bills-summary">
+                                    <div className="summary-card">
+                                        <h4>Pending Bills</h4>
+                                        <p>{bills.filter(b => !b.paid).length}</p>
+                                    </div>
+                                    <div className="summary-card">
+                                        <h4>Total Due</h4>
+                                        <p>{formattedCurrency(bills.filter(b => !b.paid).reduce((sum, b) => sum + b.amount, 0))}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bills-filters">
+                                <select
+                                    value={billFilter}
+                                    onChange={(e) => setBillFilter(e.target.value)}
+                                >
+                                    <option value="all">All Bills</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="unpaid">Unpaid</option>
+                                    <option value="utilities">Utilities</option>
+                                    <option value="credit">Credit</option>
+                                </select>
+                            </div>
+
+                            <div className="biller-grid">
+                                {filterBills(bills, billFilter).map(bill => (
+                                    <div key={bill.id} className="biller-card">
+                                        <div className="biller-header">
+                                            <span className="biller-name">{bill.name}</span>
+                                            <span className={`biller-status ${bill.paid ? 'paid' : 'unpaid'}`}>
+                                                {bill.paid ? 'Paid' : 'Unpaid'}
+                                            </span>
+                                        </div>
+                                        <div className="biller-details">
+                                            <div className="biller-amount">
+                                                {formattedCurrency(bill.amount)}
+                                            </div>
+                                            <div className="biller-due">
+                                                Due: {formatDate(bill.dueDate)}
+                                            </div>
+                                        </div>
+                                        {!bill.paid && (
+                                            <button
+                                                className="btn-pay"
+                                                onClick={() => handlePayBill(bill.id)}
+                                                disabled={isLoading}
+                                            >
+                                                Pay Now
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Cards Tab */}
+                    {activeTab === 'cards' && (
+                        <div className="cards-tab">
+                            <h2>Your Cards</h2>
+
+                            <div className="cards-filters">
+                                <select
+                                    value={cardFilter}
+                                    onChange={(e) => setCardFilter(e.target.value)}
+                                >
+                                    <option value="all">All Cards</option>
+                                    <option value="visa">Visa</option>
+                                    <option value="mastercard">Mastercard</option>
+                                </select>
+                            </div>
+
+                            <div className="cards-grid">
+                                {filterCards(cards, cardFilter).map(card => (
+                                    <div key={card.id} className={`card-item ${card.type}`}>
+                                        <div className="card-header">
+                                            <span className="card-type">{card.type.toUpperCase()}</span>
+                                            <span className="card-name">{card.name}</span>
+                                        </div>
+                                        <div className="card-number">{card.number}</div>
+                                        <div className="card-details">
+                                            <div>
+                                                <span className="detail-label">Expiry</span>
+                                                <span className="detail-value">{card.expiry}</span>
+                                            </div>
+                                            <div>
+                                                <span className="detail-label">CVV</span>
+                                                <span className="detail-value">
+                                                    {showCardDetails[card.id] ? card.cvv : '•••'}
+                                                    <button
+                                                        className="btn-show-cvv"
+                                                        onClick={() => toggleCardDetails(card.id)}
+                                                    >
+                                                        {showCardDetails[card.id] ? 'Hide' : 'Show'}
+                                                    </button>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="card-limits">
+                                            <div>
+                                                <span className="limit-label">Limit</span>
+                                                <span className="limit-value">{formattedCurrency(card.limit)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="limit-label">Available</span>
+                                                <span className="limit-value">{formattedCurrency(card.available)}</span>
+                                            </div>
+                                        </div>
+                                        <div className="card-actions">
+                                            <button className="btn-small">View Transactions</button>
+                                            <button className="btn-small">Freeze Card</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Payment History Tab */}
+                    {activeTab === 'history' && (
+                        <div className="history-tab">
+                            <div className="history-header">
+                                <h2>Payment History</h2>
+                                <button className="btn-print" onClick={printPaymentHistory}>
+                                    Print Statement
+                                </button>
+                            </div>
+
+                            <div className="history-filters">
+                                <select
+                                    value={transactionFilter}
+                                    onChange={(e) => setTransactionFilter(e.target.value)}
+                                >
+                                    <option value="all">All Transactions</option>
+                                    <option value="income">Income</option>
+                                    <option value="shopping">Shopping</option>
+                                    <option value="housing">Housing</option>
+                                    <option value="transfer">Transfers</option>
+                                    <option value="utilities">Utilities</option>
+                                </select>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                >
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                            </div>
+
+                            <div className="history-table">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Description</th>
+                                            <th>Account</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortTransactions(filterTransactions(transactions, transactionFilter), sortOrder).map(tx => (
+                                            <tr key={tx.id}>
+                                                <td>{formatDate(tx.date)}</td>
+                                                <td>{tx.description}</td>
+                                                <td>{tx.account}</td>
+                                                <td className={tx.type === 'credit' ? 'credit' : 'debit'}>
+                                                    {tx.type === 'credit' ? '+' : '-'}{formattedCurrency(Math.abs(tx.amount))}
+                                                </td>
+                                                <td className={`status-${tx.status}`}>
+                                                    {tx.status}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Settings Tab */}
+                    {activeTab === 'settings' && (
+                        <div className="settings-tab">
+                            <h2>Settings</h2>
+
+                            <div className="settings-section">
+                                <h3>Account Settings</h3>
+                                <div className="setting-item">
+                                    <label>Notifications</label>
+                                    <label className="switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.notifications}
+                                            onChange={(e) => handleSettingChange('notifications', e.target.checked)}
+                                        />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                                <div className="setting-item">
+                                    <label>Two-Factor Authentication</label>
+                                    <label className="switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={settings.twoFactorAuth}
+                                            onChange={(e) => handleSettingChange('twoFactorAuth', e.target.checked)}
+                                        />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                                <div className="setting-item">
+                                    <label>Biometric Login</label>
+                                    <label className="switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={biometricsEnabled}
+                                            onChange={(e) => setBiometricsEnabled(e.target.checked)}
+                                        />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="settings-section">
+                                <h3>Preferences</h3>
+                                <div className="setting-item">
+                                    <label>Language</label>
+                                    <select
+                                        value={settings.language}
+                                        onChange={(e) => handleSettingChange('language', e.target.value)}
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="mr">Marathi</option>
+                                        <option value="ta">Tamil</option>
+                                    </select>
+                                </div>
+                                <div className="setting-item">
+                                    <label>Currency</label>
+                                    <select
+                                        value={settings.currency}
+                                        onChange={(e) => handleSettingChange('currency', e.target.value)}
+                                    >
+                                        <option value="INR">Indian Rupee (₹)</option>
+                                        <option value="USD">US Dollar ($)</option>
+                                        <option value="EUR">Euro (€)</option>
+                                        <option value="GBP">British Pound (£)</option>
+                                    </select>
+                                </div>
+                                <div className="setting-item">
+                                    <label>Statement Frequency</label>
+                                    <select
+                                        value={settings.statementFrequency}
+                                        onChange={(e) => handleSettingChange('statementFrequency', e.target.value)}
+                                    >
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                        <option value="quarterly">Quarterly</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="settings-section">
+                                <h3>Theme</h3>
+                                <div className="theme-options">
+                                    <div
+                                        className={`theme-option ${!darkMode ? 'active' : ''}`}
+                                        onClick={() => setDarkMode(false)}
+                                    >
+                                        <div className="theme-preview light"></div>
+                                        <span>Light</span>
+                                    </div>
+                                    <div
+                                        className={`theme-option ${darkMode ? 'active' : ''}`}
+                                        onClick={() => setDarkMode(true)}
+                                    >
+                                        <div className="theme-preview dark"></div>
+                                        <span>Dark</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </main>
             </div>
 
