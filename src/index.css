@@ -1,0 +1,28 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --text: #1f2937;
+  --background: #f9fafb;
+  --card-bg: #ffffff;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+}
+
+/* Add these to ensure consistent box model */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Global button styles */
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
